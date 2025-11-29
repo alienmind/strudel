@@ -2383,7 +2383,7 @@ export const jux = register('jux', function (func, pat) {
 /**
  * Like jux, but flips the ears each cycle.
  * @name juxFlip
- * @synonyms flux
+ * @synonyms juxflip, flux
  * @example
  * s("bd lt [~ ht] mt cp ~ bd hh").juxFlip(rev)
  * @example
@@ -2391,8 +2391,8 @@ export const jux = register('jux', function (func, pat) {
  * @example
  * s("bd lt [~ ht] mt cp ~ bd hh").juxFlip(iter(4))
  */
-export const { juxFlip, flux } = register(['juxFlip', 'flux'], function (func, pat) {
-  return pat._jux(1, func, pat);
+export const { juxFlip, flux } = register(['juxFlip', 'juxflip', 'flux'], function (func, pat) {
+  return pat._juxFlipBy(1, func, pat);
 });
 
 /**
