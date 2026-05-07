@@ -6,14 +6,16 @@ This program is free software: you can redistribute it and/or modify it under th
 
 import { code2hash, getPerformanceTimeSeconds, logger, silence } from '@strudel/core';
 import { getDrawContext } from '@strudel/draw';
-import { evaluate, transpiler } from '@strudel/transpiler';
+import { transpiler, evaluate } from '@strudel/transpiler';
 import {
   getAudioContextCurrentTime,
+  renderPatternAudio,
   webaudioOutput,
   resetGlobalEffects,
   resetLoadedSounds,
   initAudioOnFirstClick,
   resetDefaults,
+  initAudio,
 } from '@strudel/webaudio';
 import { setVersionDefaultsFrom } from './util.mjs';
 import { StrudelMirror, defaultSettings } from '@strudel/codemirror';
@@ -36,6 +38,7 @@ import { getRandomTune, initCode, loadModules, shareCode } from './util.mjs';
 import './Repl.css';
 import { setInterval, clearInterval } from 'worker-timers';
 import { getMetadata } from '../metadata_parser';
+import { debugAudiograph } from './audiograph';
 
 const { latestCode, maxPolyphony, audioDeviceName, multiChannelOrbits } = settingsMap.get();
 let modulesLoading, presets, drawContext, clearCanvas, audioReady;
@@ -68,6 +71,7 @@ export function useReplContext() {
   const defaultOutput = shouldUseWebaudio ? webaudioOutput : superdirtOutput;
   const getTime = shouldUseWebaudio ? getAudioContextCurrentTime : getPerformanceTimeSeconds;
   const init = useCallback(() => {
+    setActivePattern(getViewingPatternData().id);
     const drawTime = [-2, 2];
     const drawContext = getDrawContext();
     const editor = new StrudelMirror({
@@ -83,12 +87,12 @@ export function useReplContext() {
       pattern: silence,
       drawTime,
       drawContext,
-      prebake: async () =>
-        Promise.all([modulesLoading, presets]).then(() => {
-          if (prebakeScript?.length) {
-            return evaluate(prebakeScript ?? '');
-          }
-        }),
+      prebake: async () => {
+        await Promise.all([modulesLoading, presets]);
+        if (prebakeScript) {
+          return evaluate(prebakeScript, { addReturn: false });
+        }
+      },
       onUpdateState: (state) => {
         setReplState({ ...state });
       },
@@ -103,17 +107,24 @@ export function useReplContext() {
         //post to iframe parent (like Udels) if it exists...
         window.parent?.postMessage(code);
 
-        setLatestCode(code);
-        window.location.hash = '#' + code2hash(code);
-        setDocumentTitle(code);
+        // Get the full buffer content from the editor instead of just the evaluated block
+        const fullBufferCode = editorRef.current?.code || code;
+        setLatestCode(fullBufferCode);
+
+        try {
+          window.location.hash = '#' + code2hash(fullBufferCode);
+        } catch (e) {
+          console.warn('[useReplContext] Failed to update hash:', e.message);
+        }
+        setDocumentTitle(fullBufferCode);
         const viewingPatternData = getViewingPatternData();
-        setVersionDefaultsFrom(code);
-        const data = { ...viewingPatternData, code };
+        setVersionDefaultsFrom(fullBufferCode);
+        const data = { ...viewingPatternData, code: fullBufferCode };
         let id = data.id;
         const isExamplePattern = viewingPatternData.collection !== userPattern.collection;
 
         if (isExamplePattern) {
-          const codeHasChanged = code !== viewingPatternData.code;
+          const codeHasChanged = fullBufferCode !== viewingPatternData.code;
           if (codeHasChanged) {
             // fork example
             const newPattern = userPattern.duplicate(data);
@@ -129,6 +140,7 @@ export function useReplContext() {
       bgFill: false,
     });
     window.strudelMirror = editor;
+    window.debugAudiograph = debugAudiograph;
 
     // init settings
     initCode().then(async (decoded) => {
@@ -164,9 +176,8 @@ export function useReplContext() {
   useEffect(() => {
     let editorSettings = {};
     Object.keys(defaultSettings).forEach((key) => {
-      if (Object.prototype.hasOwnProperty.call(_settings, key)) {
-        editorSettings[key] = _settings[key];
-      }
+      // Don't use hasOwnProperty - nanostore uses proxies so values may not be own properties
+      editorSettings[key] = _settings[key];
     });
     editorRef.current?.updateSettings(editorSettings);
   }, [_settings]);
@@ -207,6 +218,30 @@ export function useReplContext() {
   const handleEvaluate = () => {
     editorRef.current.evaluate();
   };
+
+  const handleExport = async (begin, end, sampleRate, maxPolyphony, multiChannelOrbits, downloadName = undefined) => {
+    await editorRef.current.evaluate(false);
+    editorRef.current.repl.scheduler.stop();
+    await renderPatternAudio(
+      editorRef.current.repl.state.pattern,
+      editorRef.current.repl.scheduler.cps,
+      begin,
+      end,
+      sampleRate,
+      maxPolyphony,
+      multiChannelOrbits,
+      downloadName,
+    ).finally(async () => {
+      const { latestCode, maxPolyphony, audioDeviceName, multiChannelOrbits } = settingsMap.get();
+      await initAudio({
+        latestCode,
+        maxPolyphony,
+        audioDeviceName,
+        multiChannelOrbits,
+      });
+      editorRef.current.repl.scheduler.stop();
+    });
+  };
   const handleShuffle = async () => {
     const patternData = await getRandomTune();
     const code = patternData.code;
@@ -235,6 +270,7 @@ export function useReplContext() {
     handleShuffle,
     handleShare,
     handleEvaluate,
+    handleExport,
     init,
     error,
     editorRef,

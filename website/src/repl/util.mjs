@@ -1,4 +1,4 @@
-import { code2hash, evalScope, hash2code, logger } from '@strudel/core';
+import { code2hash, errorLogger, evalScope, hash2code, logger } from '@strudel/core';
 import { settingPatterns } from '../settings.mjs';
 import { setVersionDefaults } from '@strudel/webaudio';
 import { getMetadata } from '../metadata_parser';
@@ -70,6 +70,7 @@ export function loadModules() {
   let modules = [
     import('@strudel/core'),
     import('@strudel/draw'),
+    import('@strudel/edo'),
     import('@strudel/tonal'),
     import('@strudel/mini'),
     import('@strudel/xen'),
@@ -107,7 +108,20 @@ export function confirmDialog(msg) {
     resolve(confirmed);
   });
 }
+export const SETTING_CHANGE_RELOAD_MSG = 'Changing this setting requires the window to reload itself. OK?';
 
+export function confirmAndReloadPage(onSuccess) {
+  confirmDialog(SETTING_CHANGE_RELOAD_MSG).then((r) => {
+    if (r == true) {
+      try {
+        onSuccess();
+        return window.location.reload();
+      } catch (e) {
+        errorLogger(e);
+      }
+    }
+  });
+}
 //RIP due to SPAM
 // let lastShared;
 // export async function shareCode(codeToShare) {
