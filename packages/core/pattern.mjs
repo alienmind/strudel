@@ -4131,7 +4131,7 @@ export const worklet = (...args) => pure({}).worklet(...args);
 
 /**
  * Creates a pattern of numbers in base b from a number or pattern of numbers
- * padded & limited to d digits long
+ * limited to d digits long from the right
  *
  * @name base
  * @tags generators
