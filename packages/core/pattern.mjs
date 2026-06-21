@@ -2028,9 +2028,9 @@ export const { fastGap, fastgap } = register(['fastGap', 'fastgap'], function (f
     const newWhole = !hap.whole
       ? undefined
       : new TimeSpan(
-        newPart.begin.sub(begin.sub(hap.whole.begin).div(factor)),
-        newPart.end.add(hap.whole.end.sub(end).div(factor)),
-      );
+          newPart.begin.sub(begin.sub(hap.whole.begin).div(factor)),
+          newPart.end.add(hap.whole.end.sub(end).div(factor)),
+        );
     return new Hap(newWhole, newPart, hap.value, hap.context);
   };
   return pat.withQuerySpanMaybe(qf).withHap(ef).splitQueries();
@@ -4133,7 +4133,6 @@ Pattern.prototype.worklet = function (src, ...inputs) {
 
 export const worklet = (...args) => pure({}).worklet(...args);
 
-
 /**
  * Creates a pattern of numbers in base b from a number or pattern of numbers
  * limited to d digits long from the right
@@ -4147,29 +4146,32 @@ export const worklet = (...args) => pure({}).worklet(...args);
  * $: note(base("7175 543", 10, 3)).scale("c:major").s("saw")
  * // $: note("1 7 5 5 4 3").scale("c:major").s("saw")
  */
-export const base = (n, b = 10, d=0) => {
-  if(Array.isArray(n)){
+export const base = (n, b = 10, d = 0) => {
+  if (Array.isArray(n)) {
     n = sequence(n);
   }
   n = reify(n);
   b = reify(b);
   d = reify(d);
 
-  return d.withValue(e => {
-    return b.withValue(c => {
-      return n.withValue(v => {
-        let digits = [];
-        let value = v;
-        while (value > 0) {
-          digits.unshift(value % c);
-          value = Math.floor(value / c);
-        }
-        if (e){
-          const l = digits.length;
-          if (l > e){
-            digits = digits.slice(-1 * e);
-          }
-          /* 
+  return d
+    .withValue((e) => {
+      return b
+        .withValue((c) => {
+          return n
+            .withValue((v) => {
+              let digits = [];
+              let value = v;
+              while (value > 0) {
+                digits.unshift(value % c);
+                value = Math.floor(value / c);
+              }
+              if (e) {
+                const l = digits.length;
+                if (l > e) {
+                  digits = digits.slice(-1 * e);
+                }
+                /* 
           if (l < e){
             for (let i = l; i < e; i++) {
               digits.unshift("~");//0); //Would like to be padding this but ~- doesn't work
@@ -4177,9 +4179,12 @@ export const base = (n, b = 10, d=0) => {
             console.log("digits", digits);
           }
           */
-        }
-        return sequence(digits);
-      }).squeezeJoin();
-    }).squeezeJoin();
-  }).squeezeJoin();
+              }
+              return sequence(digits);
+            })
+            .squeezeJoin();
+        })
+        .squeezeJoin();
+    })
+    .squeezeJoin();
 };
