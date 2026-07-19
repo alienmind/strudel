@@ -10,6 +10,15 @@ const POOL_KEY = Symbol('nodePoolKey');
 
 export const isPoolable = (node) => !!node[POOL_KEY];
 
+// Drop every pooled node. The pool is keyed by node TYPE, not by audio context, so a
+// node built in one context lingers and gets handed back for the next one - connecting
+// it there throws "cannot connect to an AudioNode belonging to a different audio
+// context". A host that swaps the audio context (e.g. the offline WAV renderer, one
+// OfflineAudioContext per render) must clear the pool between contexts.
+export const clearNodePools = () => {
+  nodePools.clear();
+};
+
 const getNodeTime = (node) => {
   return node.context?.currentTime ?? 0;
 };
